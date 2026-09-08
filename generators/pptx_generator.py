@@ -1,64 +1,48 @@
 ﻿import os
 import asyncio
 from datetime import datetime
-from python_pptx import Presentation
-from python_pptx.util import Inches, Pt
-from python_pptx.enum.text import PP_ALIGN
-from python_pptx.dml.color import RGBColor
+try:
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+    from pptx.enum.text import PP_ALIGN
+    from pptx.dml.color import RGBColor
+    PPTX_AVAILABLE = True
+except ImportError:
+    PPTX_AVAILABLE = False
 
 async def generate_presentation(data: dict, user_id: int) -> str:
+    if not PPTX_AVAILABLE:
+        # Fallback - oddiy text fayl yaratamiz
+        output_path = f"temp/taqdimot_{user_id}_{int(datetime.now().timestamp())}.txt"
+        os.makedirs("temp", exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(f"TAQDIMOT: {data['topic']}\n")
+            f.write(f"Muallif: {data['author']}\n")
+            f.write(f"Slaydlar: {data['slides']}\n")
+            f.write(f"Til: {data['language']}\n\n")
+            for i in range(1, data['slides'] + 1):
+                f.write(f"Slayd {i}: {data['topic']} - qism {i}\n\n")
+        return output_path
+    
+    # PPTX generatsiya
     prs = Presentation()
-    prs.slide_width = Inches(10)
-    prs.slide_height = Inches(7.5)
     
-    theme_idx = data.get("theme_idx", 0)
-    colors = [
-        (41, 128, 185, 255, 255, 255),
-        (46, 139, 87, 255, 255, 255),
-        (192, 57, 43, 255, 255, 255),
-        (108, 52, 131, 255, 255, 255),
-        (241, 196, 15, 0, 0, 0),
-        (52, 73, 94, 255, 255, 255),
-        (52, 152, 219, 255, 255, 255),
-        (255, 255, 255, 0, 0, 0),
-    ]
+    # Title slide
+    slide1 = prs.slides.add_slide(prs.slide_layouts[0])
+    title = slide1.shapes.title
+    subtitle = slide1.placeholders[1]
     
-    bg_color = colors[theme_idx][:3]
-    text_color = colors[theme_idx][3:]
+    title.text = data['topic']
+    subtitle.text = data['author']
     
-    slide1 = prs.slides.add_slide(prs.slide_layouts[6])
-    background = slide1.background
-    fill = background.fill
-    fill.solid()
-    fill.fore_color.rgb = RGBColor(*bg_color)
-    
-    title_box = slide1.shapes.add_textbox(Inches(1), Inches(2.5), Inches(8), Inches(1.5))
-    title_frame = title_box.text_frame
-    title_frame.text = data['topic']
-    title_frame.paragraphs[0].font.size = Pt(54)
-    title_frame.paragraphs[0].font.bold = True
-    title_frame.paragraphs[0].font.color.rgb = RGBColor(*text_color)
-    title_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-    
-    author_box = slide1.shapes.add_textbox(Inches(1), Inches(5), Inches(8), Inches(1))
-    author_frame = author_box.text_frame
-    author_frame.text = data['author']
-    author_frame.paragraphs[0].font.size = Pt(24)
-    author_frame.paragraphs[0].font.color.rgb = RGBColor(*text_color)
-    author_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
-    
+    # Content slides
     for i in range(1, data['slides']):
-        slide = prs.slides.add_slide(prs.slide_layouts[6])
-        background = slide.background
-        fill = background.fill
-        fill.solid()
-        fill.fore_color.rgb = RGBColor(*bg_color)
+        slide = prs.slides.add_slide(prs.slide_layouts[1])
+        title = slide.shapes.title
+        content = slide.placeholders[1]
         
-        slide_num_box = slide.shapes.add_textbox(Inches(8.5), Inches(6.8), Inches(1), Inches(0.5))
-        slide_num_frame = slide_num_box.text_frame
-        slide_num_frame.text = str(i)
-        slide_num_frame.paragraphs[0].font.size = Pt(12)
-        slide_num_frame.paragraphs[0].font.color.rgb = RGBColor(*text_color)
+        title.text = f"{data['topic']} - Qism {i}"
+        content.text = f"Bu yerda {i}-qism mazmuni bo'ladi."
     
     output_path = f"temp/taqdimot_{user_id}_{int(datetime.now().timestamp())}.pptx"
     os.makedirs("temp", exist_ok=True)
